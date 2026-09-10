@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  selene (Redmi 10) local manifest – PixelOS "seventeen" (A17) icin.
+  Yeri:  .repo/local_manifests/selene.xml
+
+  Hangi yollarin BURADA olmasi gerektigi, PixelOS manifest'i
+  (default.xml + snippets/lineage.xml + snippets/pixelos.xml, dal=seventeen)
+  taranarak dogrulandi – 2026-09-06.
+
+  remote="github" hakkinda: PixelOS default.xml'de bu remote fetch=".."
+  ile tanimli. repo bunu manifest URL'sine gore cozuyor:
+      https://github.com/PixelOS-AOSP/android_manifest  ->  https://github.com/
+  Bu yuzden project name'leri ORG ADIYLA nitelenmek zorunda
+  ("xiaomi-selene/android_..."), tipki manifest'in kendi
+  "PixelOS-AOSP/..." ve "LineageOS/..." girdileri gibi.
+
+  PixelOS'un ZATEN sagladigi, buraya EKLENMEYECEK yollar (ekleyince
+  repo "duplicate path" ile patlar):
+      vendor/lineage           (PixelOS-AOSP/android_vendor_lineage)
+      vendor/custom            (PixelOS-AOSP/android_vendor_custom)
+      hardware/lineage/interfaces      <- device.mk:385 bunu istiyor
+      hardware/lineage/compat
+      tools/extract-utils              <- extract-files.py bunu istiyor
+      prebuilts/extract-tools
+      system/memory/libion
+-->
+<manifest>
+
+  <!-- Cihaz agaci. A17 icin ayri bir dal ACILMADI: PixelOS'un kendi
+       device tree'lerinde (sweet, alioth) seventeen ile sixteen-qpr2
+       AYNI commit – yani A16->A17 gecisi device tree'de degisiklik
+       gerektirmiyor. lineage-23.2 oldugu gibi kullaniliyor.
+       2026-09-09: kendi fork'umuza gecildi (mt6768-S). custom_selene.mk,
+       AndroidProducts.mk ve iki upstream hata duzeltmesi artik agacta,
+       sync sonrasi elle kopyalama GEREKMIYOR. -->
+  <project name="mt6768-S/android_device_xiaomi_selene"
+           path="device/xiaomi/selene"
+           remote="github"
+           revision="refs/heads/lineage-23.2" />
+
+  <!-- Prebuilt dtbo.img – BoardConfig.mk:
+         BOARD_PREBUILT_DTBOIMAGE := $(DEVICE_PATH)-kernel/dtbo.img
+       DIKKAT: bu depo yalnizca lineage-20 dalinda ve son push 2025-01-15.
+       A13 donemi dtbo. "Stok dtbo sart" kaydimizla celisip celismedigi
+       ilk build'den ONCE dogrulanmali (bkz. NOTLAR-A17.md, kontrol 3). -->
+  <project name="xiaomi-selene/android_device_xiaomi_selene-kernel"
+           path="device/xiaomi/selene-kernel"
+           remote="github"
+           revision="refs/heads/lineage-20"
+           clone-depth="1" />
+
+  <!-- Kernel kaynagi – BoardConfig.mk:
+         TARGET_KERNEL_SOURCE := kernel/xiaomi/selene
+         TARGET_KERNEL_CONFIG := selene_defconfig
+       Bu depo 4.14.356 ve selene_defconfig ICERIYOR (dogrulandi).
+       Ilk build'de BUNU kullan – device tree ile eslesen tek kombinasyon. -->
+  <project name="xiaomi-selene/android_kernel_xiaomi_selene"
+           path="kernel/xiaomi/selene"
+           remote="github"
+           revision="refs/heads/lineage-23.0"
+           clone-depth="1" />
+
+  <!-- ALTERNATIF: bizim taze 4.19 agacimiz (mt6768-S org).
+       Ilk basarili build'den SONRA gecilecek. Tek basina yetmez, ayrica
+       BoardConfig.mk'de TARGET_KERNEL_CONFIG degistirilmeli:
+           selene_defconfig -> vrdons_defconfig
+       (bu agacta selene_defconfig YOK; dogrulandi 2026-09-06)
+
+  <project name="mt6768-S/android_kernel_xiaomi_mt6768-k419"
+           path="kernel/xiaomi/selene"
+           remote="github"
+           revision="refs/heads/full-patches" />
+  -->
+
+  <!-- MTK / Xiaomi ortak HAL'leri: PixelOS manifest'inde YOK, sart. -->
+  <project name="xiaomi-selene/android_hardware_mediatek"
+           path="hardware/mediatek"
+           remote="github"
+           revision="refs/heads/lineage-23.2" />
+
+  <project name="xiaomi-selene/android_hardware_xiaomi"
+           path="hardware/xiaomi"
+           remote="github"
+           revision="refs/heads/lineage-23.2" />
+
+  <!-- BoardConfig.mk son satirlarinda:
+         include device/mediatek/sepolicy_vndr/SEPolicy.mk -->
+  <project name="xiaomi-selene/android_device_mediatek_sepolicy_vndr"
+           path="device/mediatek/sepolicy_vndr"
+           remote="github"
+           revision="refs/heads/lineage-23.2" />
+
+  <project name="xiaomi-selene/android_vendor_mediatek_ims"
+           path="vendor/mediatek/ims"
+           remote="github"
+           revision="refs/heads/android-16-qpr2" />
+
+  <!-- Vendor blob'lari. 2026-09-09'da yayinlandi; Crave'in hattindan
+       push edildi, artik repo sync kendisi cekiyor.
+       Uretim yontemi ve kaynaklar deponun README'sinde. -->
+  <project name="mt6768-S/android_vendor_xiaomi_selene"
+           path="vendor/xiaomi/selene"
+           remote="github"
+           revision="refs/heads/lineage-23.2" />
+
+</manifest>
