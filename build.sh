@@ -39,17 +39,44 @@ mkdir -p .repo/local_manifests
 curl -sL "$BASE/local_manifests/selene.xml" -o .repo/local_manifests/selene.xml || exit 1
 echo "  $(wc -c < .repo/local_manifests/selene.xml) bytes, $(grep -c '<project' .repo/local_manifests/selene.xml) project entries"
 
+# --- workspace repair -----------------------------------------------------
+# 2026-09-11: sync failed with two errors that repo cannot recover from on
+# its own.
+#
+# 1) vendor/xiaomi/selene: "unsupported checkout state". The real cause is one
+#    line above it: "hooks is different in
+#    .repo/projects/device/xiaomi/selene.git vs
+#    .repo/project-objects/mt6768-S/android_device_xiaomi_selene.git"
+#    On 2026-09-09 the device/vendor trees moved from the xiaomi-selene org to
+#    mt6768-S. The workspace still holds the OLD org's project-objects and repo
+#    cannot bind two different object stores to the same path. The local
+#    manifest is correct; the workspace is stale.
+# 2) prebuilts/gcc/.../x86_64-linux-android-4.9: "Cannot remove project:
+#    uncommitted changes are present" -- dropped from the manifest but dirty.
+echo "########## workspace repair ##########"
+rm -rf prebuilts/gcc/linux-x86/x86/x86_64-linux-android-4.9
+for p in device/xiaomi/selene vendor/xiaomi/selene; do
+  rm -rf "$p" ".repo/projects/$p.git"
+done
+rm -rf .repo/project-objects/mt6768-S/android_device_xiaomi_selene.git
+rm -rf .repo/project-objects/mt6768-S/android_vendor_xiaomi_selene.git
+rm -rf .repo/project-objects/xiaomi-selene/android_device_xiaomi_selene.git
+rm -rf .repo/project-objects/xiaomi-selene/android_vendor_xiaomi_selene.git
+find .repo -name '*.lock' -delete 2>/dev/null
+
 # --- sync -----------------------------------------------------------------
 echo "########## repo sync ##########"
 date -u +'sync start %FT%TZ'
-repo sync -c -j"$(nproc)" --no-clone-bundle --optimized-fetch --force-sync
+# --force-remove-dirty is required: if repo cannot delete a dirty project
+# that was dropped from the manifest, it fails the WHOLE checkout.
+repo sync -c -j"$(nproc)" --no-clone-bundle --optimized-fetch --force-sync --force-remove-dirty
 rc=$?
 date -u +'sync end   %FT%TZ'
 echo "SYNC_RC=$rc"
 if [ $rc -ne 0 ]; then
   echo "retrying sync once"
   find .repo -name '*.lock' -delete 2>/dev/null
-  repo sync -c -j8 --no-clone-bundle --force-sync
+  repo sync -c -j8 --no-clone-bundle --force-sync --force-remove-dirty
   rc=$?
   echo "SYNC_RC2=$rc"
   [ $rc -ne 0 ] && { echo "FATAL: sync failed"; exit $rc; }
