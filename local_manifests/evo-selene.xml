@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  selene local manifest for Evolution X cnb (Android 17).
+  Path: .repo/local_manifests/evo-selene.xml
+
+  The Evolution X manifest already provides vendor/lineage (vendor_evolution),
+  device/lineage/sepolicy, hardware/lineage/*, system/memory/libion,
+  tools/extract-utils, prebuilts/extract-tools and
+  prebuilts/clang/kernel/linux-x86/clang-r416183b, so they are not listed here.
+
+  vendor/xiaomi/selene is not listed either: build-evo.sh extracts it from
+  the stock MIUI ROM inside the job, so it always matches proprietary-files.txt.
+-->
+<manifest>
+  <project name="mt6768-S/android_device_xiaomi_selene"
+           path="device/xiaomi/selene"
+           remote="github"
+           revision="refs/heads/evo-17" />
+
+  <project name="mt6768-S/android_kernel_xiaomi_mt6768"
+           path="kernel/xiaomi/mt6768"
+           remote="github"
+           revision="refs/heads/lineage-24.0"
+           clone-depth="1" />
+
+  <project name="LineageOS/android_hardware_mediatek"
+           path="hardware/mediatek"
+           remote="github"
+           revision="refs/heads/lineage-24.0" />
+
+  <project name="LineageOS/android_hardware_xiaomi"
+           path="hardware/xiaomi"
+           remote="github"
+           revision="refs/heads/lineage-24.0" />
+
+  <project name="LineageOS/android_device_mediatek_sepolicy_vndr"
+           path="device/mediatek/sepolicy_vndr"
+           remote="github"
+           revision="refs/heads/lineage-24.0" />
+
+  <project name="xiaomi-selene/android_vendor_mediatek_ims"
+           path="vendor/mediatek/ims"
+           remote="github"
+           revision="refs/heads/android-16-qpr2" />
+</manifest>
