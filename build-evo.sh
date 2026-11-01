@@ -46,26 +46,41 @@ mkdir -p .repo/local_manifests
 curl -sfL "$BASE/local_manifests/evo-selene.xml" -o .repo/local_manifests/evo-selene.xml \
   || die "local manifest download failed"
 
-# Leftovers that are not repo projects (crave push, old local manifests).
-rm -rf vendor/xiaomi/selene device/xiaomi/selene-kernel kernel/xiaomi/selene
+# Switching an existing workspace to another manifest leaves checkouts linked
+# to the old manifest's object stores ("hooks is different in
+# .repo/projects/X.git vs .repo/project-objects/Y.git"), and repo then refuses
+# to check them out. Do the switch once: drop every checkout and
+# .repo/projects, keep .repo/project-objects as a fetch cache.
+MARK=.repo/.selene-manifest
+if [ "$(cat "$MARK" 2>/dev/null)" != "evo-$EVO_BRANCH" ]; then
+  say "switching workspace to evo-$EVO_BRANCH (dropping old checkouts)"
+  find . -mindepth 1 -maxdepth 1 ! -name .repo -exec rm -rf {} +
+  rm -rf .repo/projects
+fi
 find .repo -name '*.lock' -delete 2>/dev/null
 
 # --- sync -----------------------------------------------------------------
 say "sync"
-if [ -x /opt/crave/resync.sh ]; then
-  /opt/crave/resync.sh
-else
-  repo sync -c -j"$(nproc)" --no-clone-bundle --no-tags --optimized-fetch \
-    --force-sync --force-remove-dirty
+sync_once() {
+  repo sync -c -j"$(nproc)" --no-clone-bundle --no-tags --optimized-fetch     --force-sync --force-remove-dirty 2>&1 | tee /tmp/sync.log
+}
+sync_once
+if grep -q -E "Unable to fully sync|Checking out local projects failed|hooks is different" /tmp/sync.log; then
+  echo "sync incomplete, repairing listed projects and retrying once"
+  grep -o "hooks is different in [^ ]*/.repo/projects/[^ ]*\.git" /tmp/sync.log     | sed 's#.*/.repo/projects/##; s#\.git$##' | sort -u | while read -r p; do
+      rm -rf "$p" ".repo/projects/$p.git"
+    done
+  find .repo -name '*.lock' -delete 2>/dev/null
+  sync_once
+  grep -q -E "Unable to fully sync|Checking out local projects failed|hooks is different" /tmp/sync.log     && die "sync still incomplete"
 fi
-rc=$?
-echo "SYNC_RC=$rc"
-for p in device/xiaomi/selene kernel/xiaomi/mt6768 hardware/mediatek hardware/xiaomi \
-         device/mediatek/sepolicy_vndr vendor/mediatek/ims vendor/lineage \
-         tools/extract-utils prebuilts/extract-tools \
-         prebuilts/clang/kernel/linux-x86/clang-r416183b; do
-  printf '  %-48s %s\n' "$p" "$([ -d "$p" ] && echo ok || echo MISSING)"
+echo "evo-$EVO_BRANCH" > "$MARK"
+echo "SYNC_OK"
+for p in device/xiaomi/selene kernel/xiaomi/mt6768 hardware/mediatek hardware/xiaomi          device/mediatek/sepolicy_vndr vendor/mediatek/ims vendor/lineage          tools/extract-utils prebuilts/extract-tools          prebuilts/clang/kernel/linux-x86/clang-r416183b; do
+  printf '  %-48s %s
+' "$p" "$([ -d "$p" ] && echo ok || echo MISSING)"
 done
+[ -f vendor/lineage/config/evolution.mk ] || die "vendor/lineage is not Evolution X"
 [ -f device/xiaomi/selene/lineage_selene.mk ] || die "selene tree missing after sync"
 
 # --- vendor/xiaomi/selene ---------------------------------------------------
