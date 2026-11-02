@@ -22,6 +22,12 @@ COMMON_VENDOR_BRANCH="lineage-23.2"
 say() { echo "########## $* ($(date -u +%FT%TZ)) ##########"; }
 die() { echo "FATAL: $*"; exit 1; }
 
+# Crave cancels a job that prints nothing for ~15 min (job 308631 died during
+# the silent checkout wipe). Keep a heartbeat on stdout for the whole run.
+( while sleep 60; do echo "[heartbeat $(date -u +%H:%M:%S)]"; done ) &
+HB_PID=$!
+trap 'kill $HB_PID 2>/dev/null' EXIT
+
 say "selene evo build started"
 echo "cwd: $(pwd)  cores: $(nproc)  stage: $STAGE"
 free -g | head -2
