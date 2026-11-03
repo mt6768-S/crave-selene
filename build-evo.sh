@@ -91,13 +91,29 @@ done
 
 # --- vendor/xiaomi/selene ---------------------------------------------------
 say "vendor extraction"
-[ -n "$ROM_URL" ] || die "ROM_URL is not set (stock MIUI zip for selene)"
-DUMP=/tmp/selene-dump
+# ROM_PATH is the path under the Xiaomi CDN host, e.g.
+#   V14.0.7.0.TKUMIXM/miui_SELENEGlobal_V14.0.7.0.TKUMIXM_76066530fb_13.0.zip
+# (ROM_URL is still accepted; its host is dropped and the mirrors below are used).
+# bigota/hugeota throttle this file to ~28 KB/s (job 308804 stalled at 134 MB
+# after 2 h); cdnorg/bn/aliyun serve it at MB/s. Each mirror is dropped if it
+# stays under 500 KB/s for 60 s, and the partial file is resumed on the next.
+ROM_PATH="${ROM_PATH:-${ROM_URL#https://*/}}"
+ROM_PATH="${ROM_PATH%%\?*}"
+[ -n "$ROM_PATH" ] || die "ROM_PATH (or ROM_URL) is not set (stock MIUI zip for selene)"
+ROM_MD5="${ROM_MD5:-76066530fb3c0db0773a4b5a5b4135f1}"
+# kept inside the workspace so a later job does not download it again
+DUMP="$(pwd)/.selene-dump"
 mkdir -p "$DUMP"
-ROM="$DUMP/$(basename "${ROM_URL%%\?*}")"
-if [ ! -s "$ROM" ]; then
-  curl -fL --retry 3 -o "$ROM" "$ROM_URL" || die "ROM download failed"
+ROM="$DUMP/$(basename "$ROM_PATH")"
+md5ok() { [ -s "$ROM" ] && [ "$(md5sum "$ROM" | cut -d' ' -f1)" = "$ROM_MD5" ]; }
+if ! md5ok; then
+  for host in https://cdnorg.d.miui.com https://bn.d.miui.com               https://bkt-sgp-miui-ota-update-alisgp.oss-ap-southeast-1.aliyuncs.com               https://bigota.d.miui.com; do
+    echo "download: $host"
+    curl -fL -C - --retry 2 --speed-limit 500000 --speed-time 60          --progress-bar -o "$ROM" "$host/$ROM_PATH" && md5ok && break
+    echo "  mirror failed or too slow, have $(du -h "$ROM" 2>/dev/null | cut -f1)"
+  done
 fi
+md5ok || die "ROM download failed or md5 mismatch"
 ls -lh "$ROM"
 
 # Pinned blobs (the fire Codec2 stack) do not match the selene dump. Seed
@@ -141,7 +157,7 @@ grep -i -E 'mismatch|error|failed' /tmp/extract.log | head -40
 [ $rc -eq 0 ] || die "extract-files failed"
 [ -f vendor/xiaomi/selene/BoardConfigVendor.mk ] || die "BoardConfigVendor.mk missing"
 echo "vendor files: $(find vendor/xiaomi/selene/proprietary -type f | wc -l)"
-rm -f "$ROM"
+# the ROM stays in $DUMP for the next job
 
 # --- build ----------------------------------------------------------------
 say "envsetup + lunch $LUNCH_TARGET"
