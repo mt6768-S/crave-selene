@@ -150,8 +150,20 @@ for line in open(lst):
 print('pinned seeded=%d missing=%d' % (seeded, missing))
 PY
 
+# fire V816.0.8.0 Codec2 vdec/venc: mt6768-common's vendor carries newer builds
+# with other hashes; mt6768-dev's fire lineage-22.1 vendor has the pinned ones.
+FIRE_RAW=https://raw.githubusercontent.com/mt6768-dev/proprietary_vendor_xiaomi_fire/lineage-22.1/proprietary/vendor/lib64
+for f in libcodec2_mtk_vdec.so:93f800c6380ee9c0fe9c7ae14c9678e13b17e177          libcodec2_mtk_venc.so:0bff6cf31d3dff33c8ce9b0100e7de97da3c6737; do
+  n=${f%%:*}; h=${f##*:}
+  mkdir -p "$OUTV/vendor/lib64"
+  curl -sfL -o "$OUTV/vendor/lib64/$n" "$FIRE_RAW/$n" || die "fire $n download failed"
+  [ "$(sha1sum "$OUTV/vendor/lib64/$n" | cut -d' ' -f1)" = "$h" ] || die "fire $n hash mismatch"
+  echo "  seeded from fire lineage-22.1: $n"
+done
+
 ( cd device/xiaomi/selene && ./extract-files.py "$ROM" ) 2>&1 | tee /tmp/extract.log
-rc=$?
+rc=${PIPESTATUS[0]}
+grep -q "Some files failed to process" /tmp/extract.log && rc=1
 echo "EXTRACT_RC=$rc"
 grep -i -E 'mismatch|error|failed' /tmp/extract.log | head -40
 [ $rc -eq 0 ] || die "extract-files failed"
