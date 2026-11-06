@@ -42,6 +42,20 @@ fi
 [ -d .repo ] || die "no .repo found, cwd=$(pwd)"
 echo "workspace: $(pwd)"
 
+# Job 309261 ran for 62 min, was cancelled and Crave kept none of its stdout.
+# Keep a copy of everything in the persistent workspace, and print the tail of
+# the previous run first, so a lost log can be read by the next job.
+LOGD=$(pwd)/.selene-logs; mkdir -p "$LOGD"
+PREV=$(ls -t "$LOGD"/build-*.log 2>/dev/null | head -1)
+if [ -n "$PREV" ]; then
+  say "previous run: $PREV"
+  tail -60 "$PREV"
+fi
+ls -t "$LOGD"/build-*.log 2>/dev/null | tail -n +6 | xargs -r rm -f
+LOGF=$LOGD/build-$(date -u +%Y%m%dT%H%M%SZ).log
+exec > >(tee -a "$LOGF") 2>&1
+echo "log copy: $LOGF"
+
 # --- manifest -------------------------------------------------------------
 say "repo init Evolution-X/manifest $EVO_BRANCH"
 rm -rf .repo/local_manifests
